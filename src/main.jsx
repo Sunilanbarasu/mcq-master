@@ -185,6 +185,37 @@ function parseMCQs(raw, unit = "Unit 1") {
 const demoQuestions = parseMCQs(starter);
 
 
+function resultTotal(result) {
+  return Number(
+    result.total_questions ??
+    result.total ??
+    0
+  );
+}
+
+
+function resultCorrect(result) {
+  return Number(
+    result.correct_answers ??
+    result.score ??
+    0
+  );
+}
+
+
+function resultPercentage(result) {
+  const total = resultTotal(result);
+
+  if (!total) {
+    return 0;
+  }
+
+  return Math.round(
+    (resultCorrect(result) / total) * 100
+  );
+}
+
+
 /* =========================================================
    APP
 ========================================================= */
@@ -799,25 +830,21 @@ function App() {
       return;
     }
 
-
     const finalSession = {
-
       ...session,
-
       submitted: true
-
     };
-
 
     setSession(finalSession);
 
+    const total =
+      finalSession.questions.length;
 
     const correct =
       finalSession.questions.reduce(
-        (total, question, index) => {
-
+        (count, question, index) => {
           return (
-            total +
+            count +
             (
               finalSession.answers[index] ===
               question.answer
@@ -825,54 +852,51 @@ function App() {
                 : 0
             )
           );
-
         },
         0
       );
 
+    const unanswered =
+      finalSession.questions.filter(
+        (_, index) =>
+          !finalSession.answers[index]
+      ).length;
+
+    const wrongAnswers =
+      total - correct - unanswered;
 
     if (user) {
-
-      const percentage =
-        Math.round(
-          (
-            correct /
-            finalSession.questions.length
-          ) * 100
-        );
-
 
       const {
         data,
         error
-      } =
-        await supabase
-          .from("test_results")
-          .insert({
-            user_id: user.id,
-            mode: "test",
-            unit: settings.unit,
-            score: correct,
-            total: finalSession.questions.length,
-            percentage
-          })
-          .select()
-          .single();
-
+      } = await supabase
+        .from("test_results")
+        .insert({
+          user_id: user.id,
+          test_type: "test",
+          unit: settings.unit,
+          total_questions: total,
+          correct_answers: correct,
+          wrong_answers: wrongAnswers,
+          unanswered: unanswered,
+          score: correct
+        })
+        .select()
+        .single();
 
       if (!error && data) {
-
-        setResults(
-          current => [
-            data,
-            ...current
-          ]
+        setResults(current => [
+          data,
+          ...current
+        ]);
+      } else if (error) {
+        console.error(
+          "Failed to save test result:",
+          error
         );
-
       }
-
     }
-
   }
 
 
@@ -1457,9 +1481,7 @@ function HomePage({
           results.reduce(
             (sum, result) =>
               sum +
-              Number(
-                result.percentage || 0
-              ),
+              resultPercentage(result),
             0
           ) / results.length
         )
@@ -1740,8 +1762,8 @@ function HomePage({
                     </strong>
 
                     <span>
-                      {result.score}/
-                      {result.total}
+                      {resultCorrect(result)}/
+                      {resultTotal(result)}
                       {" • "}
                       {new Date(
                         result.created_at
@@ -1751,7 +1773,7 @@ function HomePage({
                   </div>
 
                   <b className="recentScore">
-                    {result.percentage}%
+                    {resultPercentage(result)}%
                   </b>
 
                 </div>
@@ -2386,7 +2408,7 @@ function QuizPage({
                 letter ===
                 question.answer;
 
-              const selected =
+              const isSelected =
                 selected === letter;
 
 
@@ -2404,7 +2426,7 @@ function QuizPage({
                     }
                     ${
                       !isStudy &&
-                      selected
+                      isSelected
                         ? "testSelected"
                         : ""
                     }
@@ -2437,7 +2459,7 @@ function QuizPage({
 
 
                   {!isStudy &&
-                    selected && (
+                    isSelected && (
 
                     <span className="selectedLabel">
                       Selected
@@ -3085,9 +3107,7 @@ function ProgressPage({
           results.reduce(
             (sum, result) =>
               sum +
-              Number(
-                result.percentage || 0
-              ),
+              resultPercentage(result),
             0
           ) /
           results.length
@@ -3100,9 +3120,7 @@ function ProgressPage({
       ? Math.max(
           ...results.map(
             r =>
-              Number(
-                r.percentage || 0
-              )
+              resultPercentage(r)
           )
         )
       : 0;
@@ -3222,9 +3240,9 @@ function ProgressPage({
                   </strong>
 
                   <span>
-                    {result.score}
+                    {resultCorrect(result)}
                     /
-                    {result.total}
+                    {resultTotal(result)}
                     {" • "}
                     {new Date(
                       result.created_at
@@ -3234,14 +3252,12 @@ function ProgressPage({
                 </div>
 
                 <div className={
-                  Number(
-                    result.percentage
-                  ) >= 70
+                  resultPercentage(result) >= 70
                     ? "historyScore good"
                     : "historyScore"
                 }>
 
-                  {result.percentage}%
+                  {resultPercentage(result)}%
 
                 </div>
 
