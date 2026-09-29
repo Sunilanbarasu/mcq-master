@@ -223,6 +223,9 @@ function resultPercentage(result) {
 
 function App() {
 
+  const historyReady = useRef(false);
+  const handlingPopState = useRef(false);
+
   const [bank, setBank] = useState(() => {
 
     try {
