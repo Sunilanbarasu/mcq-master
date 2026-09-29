@@ -1,6 +1,7 @@
 import React, {
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 
@@ -495,7 +496,7 @@ function App() {
 
     setResults([]);
 
-    setPage("home");
+    navigate("home");
 
   }
 
@@ -571,7 +572,7 @@ function App() {
 
     setRaw("");
 
-    setPage("bank");
+    navigate("bank");
 
   }
 
@@ -688,7 +689,7 @@ function App() {
     });
 
 
-    setPage("quiz");
+    navigate("quiz", false);
 
   }
 
@@ -927,15 +928,74 @@ function App() {
      NAVIGATION
   ===================================================== */
 
-  function navigate(target) {
+  function navigate(target, clearSession = true, nextMode = mode) {
+
+    if (historyReady.current && !handlingPopState.current) {
+      window.history.pushState(
+        {
+          mcqMaster: true,
+          page: target,
+          mode: nextMode
+        },
+        "",
+        window.location.href
+      );
+    }
 
     setPage(target);
 
-    setSession(null);
+    if (clearSession) {
+      setSession(null);
+    }
 
     setMobileMenu(false);
 
   }
+
+
+  /* =====================================================
+     BROWSER HISTORY / MOBILE BACK BUTTON
+  ===================================================== */
+
+  useEffect(() => {
+
+    if (!window.history.state?.mcqMaster) {
+      window.history.replaceState(
+        {
+          mcqMaster: true,
+          page: "home",
+          mode: null
+        },
+        "",
+        window.location.href
+      );
+    }
+
+    historyReady.current = true;
+
+    function handlePopState(event) {
+
+      const state = event.state;
+
+      handlingPopState.current = true;
+
+      setPage(state?.mcqMaster ? state.page : "home");
+      setMode(state?.mcqMaster ? state.mode : null);
+      setSession(null);
+      setMobileMenu(false);
+
+      window.setTimeout(() => {
+        handlingPopState.current = false;
+      }, 0);
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+
+  }, []);
 
 
   /* =====================================================
@@ -1002,7 +1062,7 @@ function App() {
 
               setMode("study");
 
-              setPage("setup");
+              navigate("setup", true, "study");
 
             }}
           />
@@ -1018,7 +1078,7 @@ function App() {
 
               setMode("test");
 
-              setPage("setup");
+              navigate("setup", true, "test");
 
             }}
           />
@@ -1138,7 +1198,7 @@ function App() {
 
               setMode("study");
 
-              setPage("setup");
+              navigate("setup", true, "study");
 
               setMobileMenu(false);
 
@@ -1153,7 +1213,7 @@ function App() {
 
               setMode("test");
 
-              setPage("setup");
+              navigate("setup", true, "test");
 
               setMobileMenu(false);
 
@@ -1212,14 +1272,14 @@ function App() {
 
               setMode("study");
 
-              setPage("setup");
+              navigate("setup", true, "study");
 
             }}
             startTest={() => {
 
               setMode("test");
 
-              setPage("setup");
+              navigate("setup", true, "test");
 
             }}
             randomPractice={() => {
@@ -1231,11 +1291,11 @@ function App() {
                 type: "random"
               });
 
-              setPage("setup");
+              navigate("setup", true, "test");
 
             }}
             importMCQs={() =>
-              setPage("import")
+              navigate("import")
             }
           />
 
@@ -1381,7 +1441,7 @@ function App() {
 
               setMode("study");
 
-              setPage("setup");
+              navigate("setup", true, "study");
 
             }}
           >
@@ -1394,7 +1454,7 @@ function App() {
 
               setMode("test");
 
-              setPage("setup");
+              navigate("setup", true, "test");
 
             }}
           >
